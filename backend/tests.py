@@ -33,6 +33,43 @@ class BudgetBuddyAPITests(unittest.TestCase):
         app.config["TESTING"] = True
         cls.client = app.test_client()
 
+        # Register + log in a test user. The Flask test client persists
+        # cookies across requests on the same client instance, so every
+        # subsequent call in this suite is authenticated automatically.
+        cls.client.post(
+            "/api/auth/register",
+            data=json.dumps({
+                "username": "testuser",
+                "email": "testuser@example.com",
+                "password": "testpass123",
+            }),
+            content_type="application/json",
+        )
+
+        # `seed()` only creates default categories for a new user — it does not
+        # create any transactions. Seed a handful directly through the API so
+        # summary/transactions/breakdown/trend endpoints have real data to
+        # operate on, matching the default category names in database.py.
+        SEED_TRANSACTIONS = [
+            ("2025-01-24", "Tesco Superstore",  -87.43,  "debit",  "Groceries"),
+            ("2025-01-24", "Salary - January", 3850.00,  "credit", "Income"),
+            ("2025-01-23", "Netflix",           -17.99,  "debit",  "Entertainment"),
+            ("2025-01-21", "Nando's Watford",   -32.50,  "debit",  "Dining"),
+            ("2025-01-17", "Rent - January",   -850.00,  "debit",  "Housing"),
+        ]
+        for date, description, amount, tx_type, category in SEED_TRANSACTIONS:
+            cls.client.post(
+                "/api/transactions",
+                data=json.dumps({
+                    "date": date,
+                    "description": description,
+                    "amount": amount,
+                    "type": tx_type,
+                    "category": category,
+                }),
+                content_type="application/json",
+            )
+
     @classmethod
     def tearDownClass(cls):
         try:
