@@ -15,11 +15,24 @@ load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "budget-buddy-dev-secret-2025")
-app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+
+# In production the frontend (e.g. Vercel) and backend (e.g. Render) live on
+# different domains, so the session cookie must be SameSite=None + Secure to
+# be sent cross-site. Locally (same-origin via the Vite/nginx proxy) Lax is
+# fine and doesn't require HTTPS. Toggle with FLASK_ENV=production.
+IS_PRODUCTION = os.environ.get("FLASK_ENV") == "production"
+app.config["SESSION_COOKIE_SAMESITE"] = "None" if IS_PRODUCTION else "Lax"
+app.config["SESSION_COOKIE_SECURE"]   = IS_PRODUCTION
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["PERMANENT_SESSION_LIFETIME"] = 30 * 24 * 60 * 60
 
-CORS(app, supports_credentials=True)
+# Comma-separated list of allowed frontend origins, e.g.
+# "https://budget-buddy.vercel.app,http://localhost:5173"
+ALLOWED_ORIGINS = [
+    o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
+    if o.strip()
+]
+CORS(app, supports_credentials=True, origins=ALLOWED_ORIGINS)
 
 init_db()
 
@@ -714,4 +727,6 @@ def health():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    debug = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
+    app.run(host="0.0.0.0", port=port, debug=debug)

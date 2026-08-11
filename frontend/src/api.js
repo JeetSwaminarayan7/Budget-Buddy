@@ -1,4 +1,8 @@
-const BASE = "/api";
+// In local dev (via the nginx/Vite proxy) the frontend and backend share an
+// origin, so a relative "/api" works. In production the frontend (Vercel)
+// and backend (Render) are on different domains, so VITE_API_URL must be
+// set to the full backend URL, e.g. https://budget-buddy-api.onrender.com/api
+const BASE = import.meta.env.VITE_API_URL || "/api";
 
 async function req(path, opts = {}) {
   const isForm = opts.body instanceof FormData;
