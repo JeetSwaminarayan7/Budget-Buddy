@@ -1,0 +1,21 @@
+version: "3.9"
+
+services:
+
+  backend:
+    build: ./backend
+    container_name: budget-buddy-backend
+    ports:
+      - "5000:5000"
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./backend/budget_buddy.db:/app/budget_buddy.db
+
+  frontend:
+    build: ./frontend
+    container_name: budget-buddy-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
