@@ -1,17 +1,18 @@
 import { useState, useEffect, useMemo } from "react";
 import { fetchAllTransactions, fetchCategories, fetchMonths, updateTransaction } from "./api";
+import type { Transaction, Category } from "./types";
 
-const fmt = (n) =>
+const fmt = (n: number) =>
   new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP", signDisplay: "always" }).format(n);
 
 const PER_PAGE = 20;
 
 export default function Transactions() {
-  const [allTxs, setAllTxs]         = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [months, setMonths]         = useState([]);
+  const [allTxs, setAllTxs]         = useState<Transaction[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [months, setMonths]         = useState<string[]>([]);
   const [loading, setLoading]       = useState(true);
-  const [error, setError]           = useState(null);
+  const [error, setError]           = useState<string | null>(null);
 
   const [monthFilter, setMonthFilter] = useState("");
   const [catFilter, setCatFilter]     = useState("");
@@ -44,20 +45,21 @@ export default function Transactions() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
   const slice      = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
-  async function handleCategoryChange(txId, newCat) {
-    const prev = allTxs.find((tx) => tx.id === txId)?.category;
-    setAllTxs((prev) =>
-      prev.map((tx) => (tx.id === txId ? { ...tx, category: newCat } : tx))
+  async function handleCategoryChange(txId: number, newCat: string) {
+    const prev = allTxs.find((tx) => tx.id === txId)?.category ?? null;
+    setAllTxs((p) =>
+      p.map((tx) => (tx.id === txId ? { ...tx, category: newCat } : tx))
     );
     try {
       const res = await updateTransaction(txId, { category: newCat });
-      if (res?.error) throw new Error(res.error);
+      if ("error" in res) throw new Error(res.error);
     } catch (err) {
       // Revert on failure
       setAllTxs((p) =>
         p.map((tx) => (tx.id === txId ? { ...tx, category: prev } : tx))
       );
-      setError("Failed to update category: " + (err.message || "unknown error"));
+      const message = err instanceof Error ? err.message : "unknown error";
+      setError("Failed to update category: " + message);
     }
   }
 

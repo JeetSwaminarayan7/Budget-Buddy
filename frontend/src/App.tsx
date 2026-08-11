@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import type { ReactNode } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import Navbar from "./components/Navbar";
 import Dashboard from "./Dashboard";
@@ -8,18 +9,18 @@ import Budgets from "./Budgets";
 import Login from "./Login";
 import Register from "./Register";
 
-function ProtectedRoute({ children }) {
+function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="page-loading">Loading…</div>;
-  if (!user)   return <Navigate to="/login" replace />;
-  return children;
+  if (!user) return <Navigate to="/login" replace />;
+  return <>{children}</>;
 }
 
-function GuestRoute({ children }) {
+function GuestRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="page-loading">Loading…</div>;
-  if (user)    return <Navigate to="/" replace />;
-  return children;
+  if (user) return <Navigate to="/" replace />;
+  return <>{children}</>;
 }
 
 function AppShell() {

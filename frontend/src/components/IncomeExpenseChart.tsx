@@ -2,30 +2,43 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
+import type { TooltipProps } from "recharts";
+import type { BreakdownItem } from "../types";
 
-const fmt = (n) =>
+const fmt = (n: number) =>
   new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
 
-const CustomTooltip = ({ active, payload, label }) => {
+function CustomTooltip({ active, payload, label }: TooltipProps<number, string>) {
   if (active && payload && payload.length) {
     return (
       <div className="chart-tooltip">
         <div className="tooltip-title">{label}</div>
         {payload.map((p) => (
-          <div key={p.name} style={{ color: p.fill }}>
-            {p.name}: <strong>{fmt(p.value)}</strong>
+          <div key={p.name} style={{ color: p.color }}>
+            {p.name}: <strong>{fmt(p.value as number)}</strong>
           </div>
         ))}
       </div>
     );
   }
   return null;
-};
+}
 
-export default function IncomeExpenseChart({ breakdown = [], income = 0 }) {
+interface IncomeExpenseChartProps {
+  breakdown?: BreakdownItem[];
+  income?: number;
+}
+
+interface ChartRow {
+  name: string;
+  Income: number;
+  Expenses: number;
+}
+
+export default function IncomeExpenseChart({ breakdown = [], income = 0 }: IncomeExpenseChartProps) {
   const expenseData = breakdown.filter((d) => d.value > 0);
 
-  const data = [
+  const data: ChartRow[] = [
     ...expenseData.map((d) => ({
       name:     d.name.length > 10 ? d.name.slice(0, 9) + "…" : d.name,
       Income:   0,

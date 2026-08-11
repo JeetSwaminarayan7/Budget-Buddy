@@ -1,6 +1,11 @@
 import { useLocation, useNavigate } from "react-router-dom";
 
-const routeConfig = {
+interface RouteConfig {
+  title: string;
+  showUpload: boolean;
+}
+
+const routeConfig: Record<string, RouteConfig> = {
   "/":             { title: "Dashboard",        showUpload: true  },
   "/upload":       { title: "Upload Statement", showUpload: false },
   "/transactions": { title: "Transactions",     showUpload: false },

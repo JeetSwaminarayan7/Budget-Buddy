@@ -1,11 +1,13 @@
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
+import type { TooltipProps } from "recharts";
+import type { BreakdownItem } from "../types";
 
-const fmt = (n) =>
+const fmt = (n: number) =>
   new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
 
-const CustomTooltip = ({ active, payload }) => {
+function CustomTooltip({ active, payload }: TooltipProps<number, string>) {
   if (active && payload && payload.length) {
-    const d = payload[0].payload;
+    const d = payload[0].payload as BreakdownItem;
     return (
       <div className="chart-tooltip">
         <span>{d.icon} {d.name}</span>
@@ -14,9 +16,13 @@ const CustomTooltip = ({ active, payload }) => {
     );
   }
   return null;
-};
+}
 
-export default function SpendingChart({ data = [] }) {
+interface SpendingChartProps {
+  data?: BreakdownItem[];
+}
+
+export default function SpendingChart({ data = [] }: SpendingChartProps) {
   const active = data.filter((d) => d.value > 0);
   const total  = active.reduce((s, d) => s + d.value, 0);
 

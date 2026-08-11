@@ -1,9 +1,14 @@
 import { useNavigate } from "react-router-dom";
+import type { Transaction } from "../types";
 
-const fmt = (n) =>
+const fmt = (n: number) =>
   new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP", signDisplay: "always" }).format(n);
 
-export default function RecentTransactions({ transactions = [] }) {
+interface RecentTransactionsProps {
+  transactions?: Transaction[];
+}
+
+export default function RecentTransactions({ transactions = [] }: RecentTransactionsProps) {
   const navigate = useNavigate();
 
   if (transactions.length === 0) {

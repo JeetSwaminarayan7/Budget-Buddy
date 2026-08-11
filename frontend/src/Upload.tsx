@@ -1,8 +1,9 @@
-import { useState, useRef } from "react";
+import { useState, useRef, type DragEvent, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { uploadPdf, confirmUpload } from "./api";
+import type { ExtractedTransaction } from "./types";
 
-const fmt = (n) =>
+const fmt = (n: number) =>
   new Intl.NumberFormat("en-GB", {
     style: "currency",
     currency: "GBP",
@@ -10,38 +11,38 @@ const fmt = (n) =>
   }).format(n);
 
 export default function Upload() {
-  const [dragging, setDragging]   = useState(false);
-  const [loading, setLoading]     = useState(false);
-  const [error, setError]         = useState(null);
-  const [preview, setPreview]     = useState(null);
-  const [saving, setSaving]       = useState(false);
-  const [success, setSuccess]     = useState(null);
-  const fileInputRef              = useRef(null);
-  const navigate                  = useNavigate();
+  const [dragging, setDragging] = useState(false);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState<string | null>(null);
+  const [preview, setPreview]   = useState<ExtractedTransaction[] | null>(null);
+  const [saving, setSaving]     = useState(false);
+  const [success, setSuccess]   = useState<string | null>(null);
+  const fileInputRef            = useRef<HTMLInputElement>(null);
+  const navigate                = useNavigate();
 
-  function handleDragOver(e) {
+  function handleDragOver(e: DragEvent<HTMLDivElement>) {
     e.preventDefault();
     setDragging(true);
   }
 
-  function handleDragLeave(e) {
+  function handleDragLeave(e: DragEvent<HTMLDivElement>) {
     e.preventDefault();
     setDragging(false);
   }
 
-  function handleDrop(e) {
+  function handleDrop(e: DragEvent<HTMLDivElement>) {
     e.preventDefault();
     setDragging(false);
     const file = e.dataTransfer.files[0];
     if (file) processFile(file);
   }
 
-  function handleFileInput(e) {
-    const file = e.target.files[0];
+  function handleFileInput(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
     if (file) processFile(file);
   }
 
-  async function processFile(file) {
+  async function processFile(file: File) {
     if (!file.name.toLowerCase().endsWith(".pdf")) {
       setError("Please upload a PDF file.");
       return;
@@ -54,7 +55,7 @@ export default function Upload() {
       const formData = new FormData();
       formData.append("file", file);
       const result = await uploadPdf(formData);
-      if (result.error) {
+      if ("error" in result) {
         setError(result.error);
       } else {
         setPreview(result.transactions);
@@ -66,16 +67,17 @@ export default function Upload() {
     }
   }
 
-  function removeTransaction(index) {
-    setPreview((prev) => prev.filter((_, i) => i !== index));
+  function removeTransaction(index: number) {
+    setPreview((prev) => prev?.filter((_, i) => i !== index) ?? null);
   }
 
   async function handleConfirm() {
+    if (!preview) return;
     setSaving(true);
     setError(null);
     try {
       const result = await confirmUpload(preview);
-      if (result.error) {
+      if ("error" in result) {
         setError(result.error);
       } else {
         setSuccess(result.message);

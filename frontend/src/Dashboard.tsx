@@ -9,11 +9,18 @@ import {
   fetchSummary, fetchBreakdown, fetchTrend, fetchTransactions,
   fetchBudgets, fetchMonths, fetchSettings, updateSettings,
 } from "./api";
+import type { Summary, BreakdownItem, TrendPoint, Transaction, Budget, Settings } from "./types";
 
-function InlineEdit({ value, onSave, prefix = "£" }) {
+interface InlineEditProps {
+  value: number;
+  onSave: (n: number) => void;
+  prefix?: string;
+}
+
+function InlineEdit({ value, onSave, prefix = "£" }: InlineEditProps) {
   const [editing, setEditing] = useState(false);
-  const [draft,   setDraft]   = useState("");
-  const inputRef = useRef(null);
+  const [draft, setDraft]     = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
 
   function start() {
     setDraft(String(value));
@@ -47,16 +54,18 @@ function InlineEdit({ value, onSave, prefix = "£" }) {
   );
 }
 
+const DEFAULT_SETTINGS: Settings = { monthly_budget: 1000, savings_goal: 500 };
+
 export default function Dashboard() {
-  const { user }                          = useAuth();
-  const [summary, setSummary]             = useState(null);
-  const [breakdown, setBreakdown]         = useState([]);
-  const [trend, setTrend]                 = useState([]);
-  const [transactions, setTransactions]   = useState([]);
-  const [budgets, setBudgets]             = useState([]);
-  const [settings, setSettings]           = useState({ monthly_budget: 1000, savings_goal: 500 });
-  const [loading, setLoading]             = useState(true);
-  const [month, setMonth]                 = useState(null);
+  const { user }                                    = useAuth();
+  const [summary, setSummary]                       = useState<Summary | null>(null);
+  const [breakdown, setBreakdown]                   = useState<BreakdownItem[]>([]);
+  const [trend, setTrend]                           = useState<TrendPoint[]>([]);
+  const [transactions, setTransactions]             = useState<Transaction[]>([]);
+  const [budgets, setBudgets]                       = useState<Budget[]>([]);
+  const [settings, setSettings]                     = useState<Settings>(DEFAULT_SETTINGS);
+  const [loading, setLoading]                       = useState(true);
+  const [month, setMonth]                           = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -70,7 +79,7 @@ export default function Dashboard() {
           fetchSummary(m),
           fetchBreakdown(m),
           fetchTrend(),
-          fetchTransactions({ month: m, limit: 10 }),
+          fetchTransactions({ month: m, limit: "10" }),
           fetchBudgets(m),
         ]);
         setSummary(s);
@@ -87,12 +96,12 @@ export default function Dashboard() {
     load();
   }, []);
 
-  async function saveMonthlyBudget(n) {
+  async function saveMonthlyBudget(n: number) {
     setSettings((s) => ({ ...s, monthly_budget: n }));
     await updateSettings({ monthly_budget: n });
   }
 
-  async function saveSavingsGoal(n) {
+  async function saveSavingsGoal(n: number) {
     setSettings((s) => ({ ...s, savings_goal: n }));
     await updateSettings({ savings_goal: n });
   }
@@ -144,7 +153,7 @@ export default function Dashboard() {
       </div>
 
       {/* Summary cards */}
-      <SummaryCards summary={summary} monthlyBudget={monthlyBudget} />
+      <SummaryCards summary={summary ?? undefined} monthlyBudget={monthlyBudget} />
 
       {/* Two charts side by side */}
       <div className="charts-grid">

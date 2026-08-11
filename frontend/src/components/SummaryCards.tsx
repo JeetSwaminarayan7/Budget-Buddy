@@ -1,7 +1,14 @@
-const fmt = (n) =>
+import type { Summary } from "../types";
+
+const fmt = (n?: number) =>
   new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n ?? 0);
 
-export default function SummaryCards({ summary, monthlyBudget = 1000 }) {
+interface SummaryCardsProps {
+  summary?: Summary;
+  monthlyBudget?: number;
+}
+
+export default function SummaryCards({ summary, monthlyBudget = 1000 }: SummaryCardsProps) {
   const totalExpenses = summary?.totalExpenses ?? 0;
   const budgetUsed    = monthlyBudget > 0 ? Math.round((totalExpenses / monthlyBudget) * 100) : 0;
   const remaining     = monthlyBudget - totalExpenses;

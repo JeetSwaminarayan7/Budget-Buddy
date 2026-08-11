@@ -2,27 +2,33 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer,
 } from "recharts";
+import type { TooltipProps } from "recharts";
+import type { TrendPoint } from "../types";
 
-const fmt = (n) =>
+const fmt = (n: number) =>
   new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
 
-const CustomTooltip = ({ active, payload, label }) => {
+function CustomTooltip({ active, payload, label }: TooltipProps<number, string>) {
   if (active && payload && payload.length) {
     return (
       <div className="chart-tooltip">
         <div className="tooltip-title">{label}</div>
         {payload.map((p) => (
-          <div key={p.name} style={{ color: p.stroke }}>
-            {p.name}: <strong>{fmt(p.value)}</strong>
+          <div key={p.name} style={{ color: p.color }}>
+            {p.name}: <strong>{fmt(p.value as number)}</strong>
           </div>
         ))}
       </div>
     );
   }
   return null;
-};
+}
 
-export default function TrendChart({ data = [] }) {
+interface TrendChartProps {
+  data?: TrendPoint[];
+}
+
+export default function TrendChart({ data = [] }: TrendChartProps) {
   if (data.length === 0) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 200, color: "var(--text-muted)", fontSize: 13 }}>
@@ -33,7 +39,6 @@ export default function TrendChart({ data = [] }) {
 
   if (data.length === 1) {
     const d = data[0];
-    const fmt2 = (n) => new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 200, gap: 12 }}>
         <p style={{ color: "var(--text-muted)", fontSize: 13, margin: 0 }}>
@@ -42,11 +47,11 @@ export default function TrendChart({ data = [] }) {
         <div style={{ display: "flex", gap: 24 }}>
           <div style={{ textAlign: "center" }}>
             <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>Income</div>
-            <div style={{ fontSize: 20, fontWeight: 600, color: "var(--green)" }}>{fmt2(d.income)}</div>
+            <div style={{ fontSize: 20, fontWeight: 600, color: "var(--green)" }}>{fmt(d.income)}</div>
           </div>
           <div style={{ textAlign: "center" }}>
             <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>Expenses</div>
-            <div style={{ fontSize: 20, fontWeight: 600, color: "var(--red)" }}>{fmt2(d.expenses)}</div>
+            <div style={{ fontSize: 20, fontWeight: 600, color: "var(--red)" }}>{fmt(d.expenses)}</div>
           </div>
         </div>
       </div>

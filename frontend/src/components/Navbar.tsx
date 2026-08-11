@@ -2,7 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
-const navLinks = [
+interface NavLinkConfig {
+  to: string;
+  label: string;
+  end: boolean;
+}
+
+const navLinks: NavLinkConfig[] = [
   { to: "/",             label: "Dashboard",    end: true },
   { to: "/upload",       label: "Upload",       end: false },
   { to: "/budgets",      label: "Budget",       end: false },
@@ -11,14 +17,14 @@ const navLinks = [
 
 export default function Navbar() {
   const { user, logout } = useAuth();
-  const navigate         = useNavigate();
-  const [open, setOpen]  = useState(false);
-  const wrapRef          = useRef(null);
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
 
   // Close on click outside
   useEffect(() => {
-    function handleClick(e) {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+    function handleClick(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
     }

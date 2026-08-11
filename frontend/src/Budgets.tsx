@@ -1,9 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { fetchBudgets, fetchMonths, updateBudget, fetchMonthlyBudget, updateMonthlyBudget, createCategory } from "./api";
+import type { Budget } from "./types";
 
 const ICON_OPTIONS = ["🛒","🚌","🍽️","🎬","💡","🏠","🏥","🛍️","📚","✈️","🎮","💻","👗","🐾","🎵","🏋️","📱","🍕","☕","🎁","💈","🔧","📦","🌱"];
 
-function CategoryRow({ budget, month, onSave }) {
+interface CategoryRowProps {
+  budget: Budget;
+  month: string | null;
+  onSave: (name: string, amount: number) => Promise<void>;
+}
+
+function CategoryRow({ budget, onSave }: CategoryRowProps) {
   const [value, setValue] = useState(String(budget.budget === 0 ? "" : budget.budget));
   const [saving, setSaving] = useState(false);
 
@@ -55,20 +62,26 @@ function CategoryRow({ budget, month, onSave }) {
   );
 }
 
+interface NewCategoryForm {
+  name: string;
+  icon: string;
+  color: string;
+}
+
 export default function Budgets() {
-  const [budgets, setBudgets]           = useState([]);
-  const [month, setMonth]               = useState(null);
-  const [monthLabel, setMonthLabel]     = useState("");
-  const [loading, setLoading]           = useState(true);
-  const [error, setError]               = useState(null);
+  const [budgets, setBudgets]             = useState<Budget[]>([]);
+  const [month, setMonth]                 = useState<string | null>(null);
+  const [monthLabel, setMonthLabel]       = useState("");
+  const [loading, setLoading]             = useState(true);
+  const [error, setError]                 = useState<string | null>(null);
   const [monthlyBudget, setMonthlyBudget] = useState(0);
-  const [monthlyInput, setMonthlyInput] = useState("");
+  const [monthlyInput, setMonthlyInput]   = useState("");
   const [monthlySaving, setMonthlySaving] = useState(false);
-  const [monthlySaved, setMonthlySaved] = useState(false);
-  const [showAddForm, setShowAddForm]   = useState(false);
-  const [newCat, setNewCat]             = useState({ name: "", icon: "💳", color: "#6366f1" });
-  const [addSaving, setAddSaving]       = useState(false);
-  const [addError, setAddError]         = useState(null);
+  const [monthlySaved, setMonthlySaved]   = useState(false);
+  const [showAddForm, setShowAddForm]     = useState(false);
+  const [newCat, setNewCat]               = useState<NewCategoryForm>({ name: "", icon: "💳", color: "#6366f1" });
+  const [addSaving, setAddSaving]         = useState(false);
+  const [addError, setAddError]           = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -90,12 +103,13 @@ export default function Budgets() {
     load();
   }, []);
 
-  async function handleCatSave(catName, newAmount) {
+  async function handleCatSave(catName: string, newAmount: number) {
     setBudgets((prev) => prev.map((b) => b.name === catName ? { ...b, budget: newAmount } : b));
+    if (!month) return;
     await updateBudget({ category: catName, amount: newAmount, month });
   }
 
-  async function handleMonthlySave(e) {
+  async function handleMonthlySave(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const num = parseFloat(monthlyInput);
     if (isNaN(num) || num < 0) return;
@@ -107,7 +121,7 @@ export default function Budgets() {
     setTimeout(() => setMonthlySaved(false), 2000);
   }
 
-  async function handleAddCategory(e) {
+  async function handleAddCategory(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setAddError(null);
     const name = newCat.name.trim();
@@ -115,9 +129,11 @@ export default function Budgets() {
     setAddSaving(true);
     try {
       const res = await createCategory({ name, icon: newCat.icon, color: newCat.color });
-      if (res.error) { setAddError(res.error); return; }
-      const data = await fetchBudgets(month);
-      setBudgets(data);
+      if ("error" in res) { setAddError(res.error); return; }
+      if (month) {
+        const data = await fetchBudgets(month);
+        setBudgets(data);
+      }
       setNewCat({ name: "", icon: "💳", color: "#6366f1" });
       setShowAddForm(false);
     } catch {

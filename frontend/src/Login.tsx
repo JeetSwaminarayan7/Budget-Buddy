@@ -1,22 +1,27 @@
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { register } from "./api";
+import { login } from "./api";
 import { useAuth } from "./context/AuthContext";
 
-export default function Register() {
-  const [form, setForm]       = useState({ username: "", email: "", password: "" });
-  const [error, setError]     = useState(null);
+interface LoginForm {
+  email: string;
+  password: string;
+}
+
+export default function Login() {
+  const [form, setForm]       = useState<LoginForm>({ email: "", password: "" });
+  const [error, setError]     = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { setUser }           = useAuth();
   const navigate              = useNavigate();
 
-  async function handleSubmit(e) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
-      const res = await register(form);
-      if (res.error) {
+      const res = await login(form);
+      if ("error" in res) {
         setError(res.error);
       } else {
         setUser(res);
@@ -40,23 +45,12 @@ export default function Register() {
           </div>
         </div>
 
-        <h2 className="auth-title">Create your account</h2>
-        <p className="auth-subtitle">Start managing your finances today</p>
+        <h2 className="auth-title">Welcome back</h2>
+        <p className="auth-subtitle">Sign in to your account to continue</p>
 
         {error && <div className="auth-error">{error}</div>}
 
         <form className="auth-form" onSubmit={handleSubmit}>
-          <div className="auth-field">
-            <label className="auth-label">Full name</label>
-            <input
-              className="auth-input"
-              type="text"
-              placeholder="Alex Morgan"
-              value={form.username}
-              onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
-              required
-            />
-          </div>
           <div className="auth-field">
             <label className="auth-label">Email address</label>
             <input
@@ -73,20 +67,20 @@ export default function Register() {
             <input
               className="auth-input"
               type="password"
-              placeholder="Min. 6 characters"
+              placeholder="••••••••"
               value={form.password}
               onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
               required
             />
           </div>
           <button className="auth-btn" type="submit" disabled={loading}>
-            {loading ? "Creating account…" : "Create account"}
+            {loading ? "Signing in…" : "Sign in"}
           </button>
         </form>
 
         <p className="auth-footer">
-          Already have an account?{" "}
-          <Link to="/login" className="auth-link">Sign in</Link>
+          Don't have an account?{" "}
+          <Link to="/register" className="auth-link">Create one free</Link>
         </p>
       </div>
     </div>

@@ -1,6 +1,12 @@
 import { NavLink, useLocation } from "react-router-dom";
 
-const navItems = [
+interface NavItem {
+  icon: string;
+  label: string;
+  to: string;
+}
+
+const navItems: NavItem[] = [
   { icon: "⊞", label: "Dashboard",    to: "/"             },
   { icon: "↕", label: "Transactions", to: "/transactions" },
   { icon: "◎", label: "Budgets",      to: "/budgets"      },
