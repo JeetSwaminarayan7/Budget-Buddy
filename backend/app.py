@@ -68,7 +68,7 @@ def register():
 
     conn = get_db()
     existing = conn.execute(
-        "SELECT id FROM users WHERE username = ? OR email = ?", (username, email)
+        "SELECT id FROM users WHERE username = %s OR email = %s", (username, email)
     ).fetchone()
     if existing:
         conn.close()
@@ -76,10 +76,10 @@ def register():
 
     hashed  = generate_password_hash(password)
     cursor  = conn.execute(
-        "INSERT INTO users (username, email, password) VALUES (?, ?, ?)",
+        "INSERT INTO users (username, email, password) VALUES (%s, %s, %s) RETURNING id",
         (username, email, hashed),
     )
-    user_id = cursor.lastrowid
+    user_id = cursor.fetchone()[0]
     create_default_categories(user_id, conn)
     conn.commit()
     conn.close()
@@ -100,7 +100,7 @@ def login():
         return jsonify({"error": "Email and password are required"}), 400
 
     conn = get_db()
-    user = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+    user = conn.execute("SELECT * FROM users WHERE email = %s", (email,)).fetchone()
     conn.close()
 
     if not user or not check_password_hash(user["password"], password):
@@ -124,7 +124,7 @@ def me():
         return jsonify({"error": "Not authenticated"}), 401
     conn = get_db()
     user = conn.execute(
-        "SELECT id, username, email FROM users WHERE id = ?", (session["user_id"],)
+        "SELECT id, username, email FROM users WHERE id = %s", (session["user_id"],)
     ).fetchone()
     conn.close()
     if not user:
@@ -143,12 +143,12 @@ def get_summary():
     conn    = get_db()
 
     total_income = conn.execute(
-        "SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE user_id=? AND type='credit' AND date LIKE ?",
+        "SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE user_id=%s AND type='credit' AND date LIKE %s",
         (user_id, f"{month}%")
     ).fetchone()[0]
 
     total_expenses = conn.execute(
-        "SELECT COALESCE(SUM(ABS(amount)), 0) FROM transactions WHERE user_id=? AND type='debit' AND date LIKE ?",
+        "SELECT COALESCE(SUM(ABS(amount)), 0) FROM transactions WHERE user_id=%s AND type='debit' AND date LIKE %s",
         (user_id, f"{month}%")
     ).fetchone()[0]
 
@@ -156,7 +156,7 @@ def get_summary():
     savings_rate = round((savings / total_income * 100), 1) if total_income > 0 else 0
 
     total_budget = conn.execute(
-        "SELECT COALESCE(SUM(amount), 0) FROM budgets WHERE user_id=? AND month=?",
+        "SELECT COALESCE(SUM(amount), 0) FROM budgets WHERE user_id=%s AND month=%s",
         (user_id, month)
     ).fetchone()[0]
 
@@ -185,17 +185,17 @@ def get_transactions():
     search   = request.args.get("search",   "")
     conn     = get_db()
 
-    conditions = ["t.user_id = ?"]
+    conditions = ["t.user_id = %s"]
     params     = [user_id]
 
     if month:
-        conditions.append("t.date LIKE ?")
+        conditions.append("t.date LIKE %s")
         params.append(f"{month}%")
     if category:
-        conditions.append("c.name = ?")
+        conditions.append("c.name = %s")
         params.append(category)
     if search:
-        conditions.append("t.description LIKE ?")
+        conditions.append("t.description LIKE %s")
         params.append(f"%{search}%")
 
     params.append(limit)
@@ -208,7 +208,7 @@ def get_transactions():
            LEFT JOIN categories c ON t.category_id = c.id
            WHERE {where}
            ORDER BY t.date DESC, t.id DESC
-           LIMIT ?""",
+           LIMIT %s""",
         params
     ).fetchall()
 
@@ -224,17 +224,17 @@ def add_transaction():
     conn    = get_db()
 
     cat = conn.execute(
-        "SELECT id FROM categories WHERE user_id=? AND name=?", (user_id, data["category"])
+        "SELECT id FROM categories WHERE user_id=%s AND name=%s", (user_id, data["category"])
     ).fetchone()
     category_id = cat["id"] if cat else None
 
     cursor = conn.execute(
         """INSERT INTO transactions (user_id, date, description, amount, type, category_id, source)
-           VALUES (?, ?, ?, ?, ?, ?, 'manual')""",
+           VALUES (%s, %s, %s, %s, %s, %s, 'manual') RETURNING id""",
         (user_id, data["date"], data["description"], data["amount"], data["type"], category_id)
     )
+    tx_id = cursor.fetchone()[0]
     conn.commit()
-    tx_id = cursor.lastrowid
     conn.close()
     return jsonify({"id": tx_id, "message": "Transaction added"}), 201
 
@@ -244,7 +244,7 @@ def add_transaction():
 def delete_transaction(tx_id):
     user_id = uid()
     conn    = get_db()
-    conn.execute("DELETE FROM transactions WHERE id=? AND user_id=?", (tx_id, user_id))
+    conn.execute("DELETE FROM transactions WHERE id=%s AND user_id=%s", (tx_id, user_id))
     conn.commit()
     conn.close()
     return jsonify({"message": "Deleted"}), 200
@@ -259,11 +259,11 @@ def update_transaction(tx_id):
 
     if "category" in data:
         cat = conn.execute(
-            "SELECT id FROM categories WHERE user_id=? AND name=?", (user_id, data["category"])
+            "SELECT id FROM categories WHERE user_id=%s AND name=%s", (user_id, data["category"])
         ).fetchone()
         category_id = cat["id"] if cat else None
         conn.execute(
-            "UPDATE transactions SET category_id=? WHERE id=? AND user_id=?",
+            "UPDATE transactions SET category_id=%s WHERE id=%s AND user_id=%s",
             (category_id, tx_id, user_id)
         )
         conn.commit()
@@ -280,7 +280,7 @@ def get_categories():
     user_id = uid()
     conn    = get_db()
     rows    = conn.execute(
-        "SELECT * FROM categories WHERE user_id=? ORDER BY name", (user_id,)
+        "SELECT * FROM categories WHERE user_id=%s ORDER BY name", (user_id,)
     ).fetchall()
     conn.close()
     return jsonify([dict(r) for r in rows])
@@ -300,18 +300,18 @@ def create_category():
 
     conn     = get_db()
     existing = conn.execute(
-        "SELECT id FROM categories WHERE user_id=? AND name=?", (user_id, name)
+        "SELECT id FROM categories WHERE user_id=%s AND name=%s", (user_id, name)
     ).fetchone()
     if existing:
         conn.close()
         return jsonify({"error": "Category already exists"}), 409
 
     cursor = conn.execute(
-        "INSERT INTO categories (user_id, name, icon, color) VALUES (?, ?, ?, ?)",
+        "INSERT INTO categories (user_id, name, icon, color) VALUES (%s, %s, %s, %s) RETURNING id",
         (user_id, name, icon, color)
     )
+    cat_id = cursor.fetchone()[0]
     conn.commit()
-    cat_id = cursor.lastrowid
     conn.close()
     return jsonify({"id": cat_id, "name": name, "icon": icon, "color": color}), 201
 
@@ -322,12 +322,12 @@ def delete_category(cat_id):
     user_id = uid()
     conn    = get_db()
     cat     = conn.execute(
-        "SELECT id FROM categories WHERE id=? AND user_id=?", (cat_id, user_id)
+        "SELECT id FROM categories WHERE id=%s AND user_id=%s", (cat_id, user_id)
     ).fetchone()
     if not cat:
         conn.close()
         return jsonify({"error": "Category not found"}), 404
-    conn.execute("DELETE FROM categories WHERE id=? AND user_id=?", (cat_id, user_id))
+    conn.execute("DELETE FROM categories WHERE id=%s AND user_id=%s", (cat_id, user_id))
     conn.commit()
     conn.close()
     return jsonify({"message": "Category deleted"}), 200
@@ -349,10 +349,10 @@ def get_breakdown():
            LEFT JOIN transactions t
              ON t.category_id = c.id
              AND t.type = 'debit'
-             AND t.date LIKE ?
-             AND t.user_id = ?
-           WHERE c.user_id = ? AND c.name != 'Income'
-           GROUP BY c.id
+             AND t.date LIKE %s
+             AND t.user_id = %s
+           WHERE c.user_id = %s AND c.name != 'Income'
+           GROUP BY c.id, c.name, c.icon, c.color
            ORDER BY value DESC""",
         (f"{month}%", user_id, user_id)
     ).fetchall()
@@ -371,12 +371,12 @@ def get_trend():
 
     rows = conn.execute(
         """SELECT
-             strftime('%Y-%m', date) AS month,
+             LEFT(date, 7) AS month,
              COALESCE(SUM(CASE WHEN type='credit' THEN amount ELSE 0 END), 0) AS income,
              COALESCE(SUM(CASE WHEN type='debit'  THEN ABS(amount) ELSE 0 END), 0) AS expenses
            FROM transactions
-           WHERE user_id = ?
-           GROUP BY strftime('%Y-%m', date)
+           WHERE user_id = %s
+           GROUP BY LEFT(date, 7)
            ORDER BY month ASC
            LIMIT 6""",
         (user_id,)
@@ -407,18 +407,18 @@ def get_budgets():
     # Return ALL user categories with their budget (0 if not set)
     rows = conn.execute(
         """SELECT c.id, c.name, c.icon, c.color,
-                  COALESCE(b.amount, 0) AS budget,
+                  COALESCE(MAX(b.amount), 0) AS budget,
                   COALESCE(SUM(ABS(t.amount)), 0) AS spent
            FROM categories c
            LEFT JOIN budgets b
-             ON b.category_id = c.id AND b.user_id = ? AND b.month = ?
+             ON b.category_id = c.id AND b.user_id = %s AND b.month = %s
            LEFT JOIN transactions t
              ON t.category_id = c.id
              AND t.type = 'debit'
-             AND t.date LIKE ?
-             AND t.user_id = ?
-           WHERE c.user_id = ? AND c.name != 'Income'
-           GROUP BY c.id
+             AND t.date LIKE %s
+             AND t.user_id = %s
+           WHERE c.user_id = %s AND c.name != 'Income'
+           GROUP BY c.id, c.name, c.icon, c.color
            ORDER BY spent DESC""",
         (user_id, month, f"{month}%", user_id, user_id)
     ).fetchall()
@@ -441,14 +441,14 @@ def update_budget():
 
     conn = get_db()
     cat  = conn.execute(
-        "SELECT id FROM categories WHERE user_id=? AND name=?", (user_id, category_name)
+        "SELECT id FROM categories WHERE user_id=%s AND name=%s", (user_id, category_name)
     ).fetchone()
     if not cat:
         conn.close()
         return jsonify({"error": f"Category '{category_name}' not found"}), 404
 
     conn.execute(
-        """INSERT INTO budgets (user_id, category_id, amount, month) VALUES (?, ?, ?, ?)
+        """INSERT INTO budgets (user_id, category_id, amount, month) VALUES (%s, %s, %s, %s)
            ON CONFLICT(user_id, category_id, month) DO UPDATE SET amount = excluded.amount""",
         (user_id, cat["id"], float(amount), month)
     )
@@ -465,7 +465,7 @@ def get_monthly_budget():
     user_id = uid()
     conn    = get_db()
     row     = conn.execute(
-        "SELECT monthly_budget FROM users WHERE id=?", (user_id,)
+        "SELECT monthly_budget FROM users WHERE id=%s", (user_id,)
     ).fetchone()
     conn.close()
     return jsonify({"amount": round(row["monthly_budget"], 2) if row else 1000})
@@ -483,7 +483,7 @@ def update_monthly_budget():
 
     conn = get_db()
     conn.execute(
-        "UPDATE users SET monthly_budget=? WHERE id=?", (float(amount), user_id)
+        "UPDATE users SET monthly_budget=%s WHERE id=%s", (float(amount), user_id)
     )
     conn.commit()
     conn.close()
@@ -498,7 +498,7 @@ def get_settings():
     user_id = uid()
     conn    = get_db()
     row     = conn.execute(
-        "SELECT monthly_budget, savings_goal FROM users WHERE id=?", (user_id,)
+        "SELECT monthly_budget, savings_goal FROM users WHERE id=%s", (user_id,)
     ).fetchone()
     conn.close()
     return jsonify({
@@ -520,9 +520,9 @@ def update_settings():
 
     conn = get_db()
     if monthly_budget is not None:
-        conn.execute("UPDATE users SET monthly_budget=? WHERE id=?", (float(monthly_budget), user_id))
+        conn.execute("UPDATE users SET monthly_budget=%s WHERE id=%s", (float(monthly_budget), user_id))
     if savings_goal is not None:
-        conn.execute("UPDATE users SET savings_goal=? WHERE id=?", (float(savings_goal), user_id))
+        conn.execute("UPDATE users SET savings_goal=%s WHERE id=%s", (float(savings_goal), user_id))
     conn.commit()
     conn.close()
     return jsonify({"message": "Settings updated"}), 200
@@ -615,7 +615,7 @@ def confirm_upload():
 
     conn      = get_db()
     user_cats = conn.execute(
-        "SELECT id, name FROM categories WHERE user_id=?", (user_id,)
+        "SELECT id, name FROM categories WHERE user_id=%s", (user_id,)
     ).fetchall()
     cat_map            = {r["name"]: r["id"] for r in user_cats}
     upload_categories  = list(cat_map.keys())
@@ -663,7 +663,7 @@ def confirm_upload():
 
             conn.execute(
                 """INSERT INTO transactions (user_id, date, description, amount, type, category_id, source)
-                   VALUES (?, ?, ?, ?, ?, ?, 'pdf')""",
+                   VALUES (%s, %s, %s, %s, %s, %s, 'pdf')""",
                 (user_id, tx["date"], tx["description"], float(tx["amount"]), tx["type"], category_id),
             )
             saved += 1
@@ -678,15 +678,16 @@ def confirm_upload():
         uploaded_months = {tx["date"][:7] for tx in transactions if "date" in tx}
         for month in uploaded_months:
             existing = conn.execute(
-                "SELECT COUNT(*) FROM budgets WHERE user_id=? AND month=?", (user_id, month)
+                "SELECT COUNT(*) FROM budgets WHERE user_id=%s AND month=%s", (user_id, month)
             ).fetchone()[0]
             if existing == 0:
                 for cat_name, amount in DEFAULT_BUDGETS:
                     cat_id = cat_map.get(cat_name)
                     if cat_id:
                         conn.execute(
-                            """INSERT OR IGNORE INTO budgets (user_id, category_id, amount, month)
-                               VALUES (?, ?, ?, ?)""",
+                            """INSERT INTO budgets (user_id, category_id, amount, month)
+                               VALUES (%s, %s, %s, %s)
+                               ON CONFLICT (user_id, category_id, month) DO NOTHING""",
                             (user_id, cat_id, amount, month)
                         )
         conn.commit()
@@ -709,9 +710,9 @@ def get_months():
     user_id = uid()
     conn    = get_db()
     rows    = conn.execute(
-        """SELECT DISTINCT strftime('%Y-%m', date) AS month
+        """SELECT DISTINCT LEFT(date, 7) AS month
            FROM transactions
-           WHERE user_id = ?
+           WHERE user_id = %s
            ORDER BY month DESC""",
         (user_id,)
     ).fetchall()

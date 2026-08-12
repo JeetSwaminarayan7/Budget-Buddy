@@ -2,32 +2,49 @@
 Budget Buddy — Backend Unit Tests
 Run:  python -m pytest tests.py -v
   or: python tests.py
+
+Requires a PostgreSQL instance reachable via the DATABASE_URL env var
+(defaults to a local test database — see database.py). CI provisions a
+throwaway PostgreSQL service container for this; see .github/workflows/ci.yml.
 """
 
 import json
 import os
 import sys
-import tempfile
 import unittest
 
-# ── Point to a temp DB before importing any app modules ──────────────────────
-_tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-_tmp.close()
-TEST_DB = _tmp.name
-os.environ["BUDGET_BUDDY_DB"] = TEST_DB   # read by database.py
+# Point at a dedicated test database if one isn't already set via env var.
+os.environ.setdefault(
+    "DATABASE_URL",
+    "postgresql://postgres:testpass@localhost:5432/budget_buddy_test",
+)
 
-import database  # noqa: E402 — must come after env-var set
-database.DB_PATH = TEST_DB
-
-from database import init_db  # noqa: E402
+import database  # noqa: E402 — must come after DATABASE_URL is set
+from database import init_db, get_db  # noqa: E402
 from seed import seed          # noqa: E402
 from app import app            # noqa: E402
+
+
+def _reset_schema():
+    """
+    Unlike the old SQLite setup (a fresh temp file every run), a Postgres
+    test database persists between runs, so we drop all tables first to
+    guarantee a clean slate and avoid unique-constraint clashes from a
+    previous run's leftover data.
+    """
+    conn = get_db()
+    conn.execute(
+        "DROP TABLE IF EXISTS budgets, monthly_budgets, transactions, categories, users CASCADE"
+    )
+    conn.commit()
+    conn.close()
 
 
 class BudgetBuddyAPITests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        _reset_schema()
         init_db()
         seed()
         app.config["TESTING"] = True
@@ -72,10 +89,7 @@ class BudgetBuddyAPITests(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        try:
-            os.unlink(TEST_DB)
-        except OSError:
-            pass
+        _reset_schema()
 
     # ── Helpers ──────────────────────────────────────────────────────────────
 

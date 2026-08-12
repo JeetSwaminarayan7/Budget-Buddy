@@ -1,49 +1,24 @@
 """
-Run this BEFORE recording the demo.
-Wipes the database and seeds categories + budget limits only (no transactions).
+Run this BEFORE recording a demo.
+Wipes the database and recreates a clean schema (no transactions, no
+categories other than what get_default_categories() sets up per-user at
+registration time).
 Usage: python reset_for_demo.py
 """
 
-import os
-import sqlite3
-from database import DB_PATH, init_db
+from database import get_db, init_db
 
-# ── 1. Delete existing DB ────────────────────────────────────────────────────
-if os.path.exists(DB_PATH):
-    os.remove(DB_PATH)
-    print(f"Deleted: {DB_PATH}")
-
-# ── 2. Recreate schema ───────────────────────────────────────────────────────
-init_db()
-print("Schema created.")
-
-# ── 3. Seed categories ───────────────────────────────────────────────────────
-CATEGORIES = [
-    ("Housing",       "🏠", "#6366f1"),
-    ("Groceries",     "🛒", "#10b981"),
-    ("Transport",     "🚗", "#f59e0b"),
-    ("Dining",        "🍽️", "#ef4444"),
-    ("Entertainment", "🎬", "#8b5cf6"),
-    ("Utilities",     "⚡", "#06b6d4"),
-    ("Healthcare",    "💊", "#84cc16"),
-    ("Shopping",      "🛍️", "#f97316"),
-    ("Income",        "💰", "#34d399"),
-]
-
-conn = sqlite3.connect(DB_PATH)
-conn.row_factory = sqlite3.Row
-conn.execute("PRAGMA foreign_keys = ON")
-cursor = conn.cursor()
-
-for name, icon, color in CATEGORIES:
-    cursor.execute(
-        "INSERT OR IGNORE INTO categories (name, icon, color) VALUES (?, ?, ?)",
-        (name, icon, color)
-    )
-conn.commit()
-print("Categories seeded.")
-
+# ── Drop and recreate schema ─────────────────────────────────────────────────
+conn = get_db()
+conn.execute(
+    "DROP TABLE IF EXISTS budgets, monthly_budgets, transactions, categories, users CASCADE"
+)
 conn.commit()
 conn.close()
-print("\nDone! Budget limits will be auto-created when you upload any statement.")
-print("You can now start the backend and begin recording.")
+print("Dropped existing tables.")
+
+init_db()
+print("Schema recreated.")
+
+print("\nDone! Register a fresh user to get default categories, then start")
+print("the backend and begin recording.")

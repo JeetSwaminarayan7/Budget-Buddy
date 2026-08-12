@@ -43,20 +43,19 @@ TRANSACTIONS = [
 
 
 def seed():
-    """Insert categories only — no dummy transactions or budgets."""
+    """
+    Ensures the schema exists.
+
+    Historically this also inserted a set of global (non-per-user)
+    categories, but the schema now requires every category to belong to a
+    user (categories.user_id is NOT NULL) — that insert would fail against
+    the current schema regardless of which database engine is used. Real
+    per-user default categories are created by create_default_categories()
+    at registration time instead (see database.py / app.py's register()),
+    so this function is kept only for schema initialisation.
+    """
     init_db()
-    conn = get_db()
-    cursor = conn.cursor()
-
-    for name, icon, color in CATEGORIES:
-        cursor.execute(
-            "INSERT OR IGNORE INTO categories (name, icon, color) VALUES (?, ?, ?)",
-            (name, icon, color)
-        )
-
-    conn.commit()
-    conn.close()
-    print("Categories seeded.")
+    print("Schema ready.")
 
 
 if __name__ == "__main__":
