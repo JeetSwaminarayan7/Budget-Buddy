@@ -1,6 +1,19 @@
-version: "3.9"
-
 services:
+
+  db:
+    image: postgres:16
+    container_name: budget-buddy-db
+    environment:
+      POSTGRES_USER: budget
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-budgetpass}
+      POSTGRES_DB: budget_buddy
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U budget -d budget_buddy"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   backend:
     build: ./backend
@@ -8,9 +21,16 @@ services:
     ports:
       - "5000:5000"
     env_file:
-      - ./backend/.env
-    volumes:
-      - ./backend/budget_buddy.db:/app/budget_buddy.db
+      - path: ./backend/.env
+        required: false
+    environment:
+      DATABASE_URL: postgresql://budget:${POSTGRES_PASSWORD:-budgetpass}@db:5432/budget_buddy
+      ALLOWED_ORIGINS: http://localhost,http://localhost:5173
+    depends_on:
+      # app.py creates its tables on startup, so it has to wait until
+      # Postgres is actually accepting connections, not just started
+      db:
+        condition: service_healthy
 
   frontend:
     build: ./frontend
@@ -19,3 +39,6 @@ services:
       - "80:80"
     depends_on:
       - backend
+
+volumes:
+  pgdata:

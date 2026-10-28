@@ -1,0 +1,87 @@
+# The Flask backend: a Deployment running two copies of the image, and a
+# Service that load-balances between them.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  labels:
+    app: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      # app.py creates its tables on import, so the backend can't start
+      # until Postgres accepts connections. This waits for that first.
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:16
+          command: ["sh", "-c", "until pg_isready -h postgres -p 5432; do echo waiting for postgres; sleep 2; done"]
+      containers:
+        - name: backend
+          # Built locally and loaded into kind with `kind load docker-image`,
+          # so Kubernetes must not try to pull it from Docker Hub
+          image: budget-buddy-backend:local
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 5000
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: budget-buddy-secrets
+                  key: POSTGRES_PASSWORD
+            - name: DATABASE_URL
+              value: postgresql://budget:$(POSTGRES_PASSWORD)@postgres:5432/budget_buddy
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: budget-buddy-secrets
+                  key: SECRET_KEY
+            - name: GROQ_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: budget-buddy-secrets
+                  key: GROQ_API_KEY
+                  optional: true
+            - name: ALLOWED_ORIGINS
+              value: http://localhost:5173,http://localhost:8080
+          # Only send traffic to a pod once /api/health answers
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          # Restart the container if it stops answering
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 5000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+spec:
+  type: ClusterIP
+  selector:
+    app: backend
+  ports:
+    - port: 5000
+      targetPort: 5000
